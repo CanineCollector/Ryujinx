@@ -82,6 +82,8 @@ namespace Ryujinx.Graphics.Shader.Translation
 
         public int SassVersion { get; }
 
+        public bool GpPassthrough { get; }
+
         public bool DoesLoadOrStore { get; }
         public bool DoesFp64        { get; }
 
@@ -110,9 +112,9 @@ namespace Ryujinx.Graphics.Shader.Translation
         public bool         OmapSampleMask { get; }
         public bool         OmapDepth      { get; }
 
-        public ShaderHeader(ReadOnlySpan<byte> code)
+        public ShaderHeader(IGpuAccessor gpuAccessor, ulong address)
         {
-            ReadOnlySpan<int> header = MemoryMarshal.Cast<byte, int>(code);
+            ReadOnlySpan<int> header = MemoryMarshal.Cast<ulong, int>(gpuAccessor.GetCode(address, 0x50));
 
             int commonWord0 = header[0];
             int commonWord1 = header[1];
@@ -139,6 +141,8 @@ namespace Ryujinx.Graphics.Shader.Translation
 
             SassVersion = commonWord0.Extract(17, 4);
 
+            GpPassthrough = commonWord0.Extract(24);
+
             DoesLoadOrStore = commonWord0.Extract(26);
             DoesFp64        = commonWord0.Extract(27);
 
@@ -163,18 +167,15 @@ namespace Ryujinx.Graphics.Shader.Translation
 
             ImapTypes = new ImapPixelType[32];
 
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < 32; i++)
             {
-                for (int j = 0; j < 4; j++)
-                {
-                    byte imap = (byte)(header[6 + i] >> (j * 8));
+                byte imap = (byte)(header[6 + (i >> 2)] >> ((i & 3) * 8));
 
-                    ImapTypes[i * 4 + j] = new ImapPixelType(
-                        (PixelImap)((imap >> 0) & 3),
-                        (PixelImap)((imap >> 2) & 3),
-                        (PixelImap)((imap >> 4) & 3),
-                        (PixelImap)((imap >> 6) & 3));
-                }
+                ImapTypes[i] = new ImapPixelType(
+                    (PixelImap)((imap >> 0) & 3),
+                    (PixelImap)((imap >> 2) & 3),
+                    (PixelImap)((imap >> 4) & 3),
+                    (PixelImap)((imap >> 6) & 3));
             }
 
             int type2OmapTarget = header[18];

@@ -5,7 +5,7 @@ using ARMeilleure.Translation;
 
 using static ARMeilleure.Instructions.InstEmitAluHelper;
 using static ARMeilleure.Instructions.InstEmitHelper;
-using static ARMeilleure.IntermediateRepresentation.OperandHelper;
+using static ARMeilleure.IntermediateRepresentation.Operand.Factory;
 
 namespace ARMeilleure.Instructions
 {
@@ -472,6 +472,24 @@ namespace ARMeilleure.Instructions
             EmitDiv(context, true);
         }
 
+        public static void Uhadd8(ArmEmitterContext context)
+        {
+            OpCode32AluReg op = (OpCode32AluReg)context.CurrOp;
+
+            Operand m = GetIntA32(context, op.Rm);
+            Operand n = GetIntA32(context, op.Rn);
+
+            Operand xor, res;
+
+            res = context.BitwiseAnd(m, n);
+            xor = context.BitwiseExclusiveOr(m, n);
+            xor = context.ShiftRightUI(xor, Const(1));
+            xor = context.BitwiseAnd(xor, Const(0x7F7F7F7Fu));
+            res = context.Add(res, xor);
+
+            SetIntA32(context, op.Rd, res);
+        }
+
         public static void Usat(ArmEmitterContext context)
         {
             OpCode32Sat op = (OpCode32Sat)context.CurrOp;
@@ -591,7 +609,7 @@ namespace ARMeilleure.Instructions
             EmitAluStore(context, res);
         }
 
-        public static void EmitDiv(ArmEmitterContext context, bool unsigned)
+        private static void EmitDiv(ArmEmitterContext context, bool unsigned)
         {
             Operand n = GetAluN(context);
             Operand m = GetAluM(context);
