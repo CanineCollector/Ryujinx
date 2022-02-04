@@ -1,3 +1,4 @@
+using ARMeilleure.Memory;
 using System;
 using System.Diagnostics;
 
@@ -31,6 +32,14 @@ namespace ARMeilleure.State
             }
         }
 
+        // CNTVCT_EL0 = CNTPCT_EL0 - CNTVOFF_EL2
+        // Since EL2 isn't implemented, CNTVOFF_EL2 = 0
+        public ulong CntvctEl0 => CntpctEl0;
+
+        public static TimeSpan ElapsedTime => _tickCounter.Elapsed;
+        public static long ElapsedTicks => _tickCounter.ElapsedTicks;
+        public static double TickFrequency => _hostTickFreq;
+
         public long TpidrEl0 { get; set; }
         public long Tpidr    { get; set; }
 
@@ -57,7 +66,11 @@ namespace ARMeilleure.State
             }
         }
 
-        internal bool Running { get; private set; }
+        public bool Running
+        {
+            get => _nativeContext.GetRunning();
+            private set => _nativeContext.SetRunning(value);
+        }
 
         public event EventHandler<EventArgs>              Interrupt;
         public event EventHandler<InstExceptionEventArgs> Break;
@@ -69,13 +82,12 @@ namespace ARMeilleure.State
             _hostTickFreq = 1.0 / Stopwatch.Frequency;
 
             _tickCounter = new Stopwatch();
-
             _tickCounter.Start();
         }
 
-        public ExecutionContext()
+        public ExecutionContext(IJitMemoryAllocator allocator)
         {
-            _nativeContext = new NativeContext();
+            _nativeContext = new NativeContext(allocator);
 
             Running = true;
 
@@ -129,7 +141,18 @@ namespace ARMeilleure.State
         public void StopRunning()
         {
             Running = false;
+
             _nativeContext.SetCounter(0);
+        }
+
+        public static void SuspendCounter()
+        {
+            _tickCounter.Stop();
+        }
+
+        public static void ResumeCounter()
+        {
+            _tickCounter.Start();
         }
 
         public void Dispose()

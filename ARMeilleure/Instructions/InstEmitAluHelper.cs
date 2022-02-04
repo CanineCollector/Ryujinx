@@ -6,7 +6,7 @@ using System;
 using System.Diagnostics;
 
 using static ARMeilleure.Instructions.InstEmitHelper;
-using static ARMeilleure.IntermediateRepresentation.OperandHelper;
+using static ARMeilleure.IntermediateRepresentation.Operand.Factory;
 
 namespace ARMeilleure.Instructions
 {
@@ -118,12 +118,13 @@ namespace ARMeilleure.Instructions
 
             if (IsThumb(context.CurrOp))
             {
-                context.StoreToContext();
                 bool isReturn = IsA32Return(context);
+                if (!isReturn)
+                {
+                    context.StoreToContext();
+                }
 
-                Operand addr = context.BitwiseOr(value, Const(1));
-
-                InstEmitFlowHelper.EmitVirtualJump(context, addr, isReturn);
+                InstEmitFlowHelper.EmitVirtualJump(context, value, isReturn);
             }
             else
             {

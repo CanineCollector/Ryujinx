@@ -6,9 +6,14 @@ namespace Ryujinx.Graphics.Gpu
     public static class GraphicsConfig
     {
         /// <summary>
+        /// Resolution scale.
+        /// </summary>
+        public static float ResScale = 1f;
+
+        /// <summary>
         /// Max Anisotropy. Values range from 0 - 16. Set to -1 to let the game decide.
         /// </summary>
-        public static float MaxAnisotropy;
+        public static float MaxAnisotropy = -1;
 
         /// <summary>
         /// Base directory used to write shader code dumps.
@@ -22,5 +27,26 @@ namespace Ryujinx.Graphics.Gpu
         /// This can avoid lower resolution on some games when GPU performance is poor.
         /// </summary>
         public static bool FastGpuTime = true;
+
+        /// <summary>
+        /// Enables or disables the Just-in-Time compiler for GPU Macro code.
+        /// </summary>
+        public static bool EnableMacroJit = true;
+
+        /// <summary>
+        /// Enables or disables high-level emulation of common GPU Macro code.
+        /// </summary>
+        public static bool EnableMacroHLE = true;
+
+        /// <summary>
+        /// Title id of the current running game.
+        /// Used by the shader cache.
+        /// </summary>
+        public static string TitleId;
+
+        /// <summary>
+        /// Enables or disables the shader cache.
+        /// </summary>
+        public static bool EnableShaderCache;
     }
 }

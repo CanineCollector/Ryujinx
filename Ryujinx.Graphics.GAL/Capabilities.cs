@@ -2,26 +2,65 @@ namespace Ryujinx.Graphics.GAL
 {
     public struct Capabilities
     {
-        public bool SupportsAstcCompression          { get; }
-        public bool SupportsNonConstantTextureOffset { get; }
+        public readonly bool HasFrontFacingBug;
+        public readonly bool HasVectorIndexingBug;
 
-        public int MaximumComputeSharedMemorySize { get; }
-        public int StorageBufferOffsetAlignment   { get; }
+        public readonly bool SupportsAstcCompression;
+        public readonly bool Supports3DTextureCompression;
+        public readonly bool SupportsBgraFormat;
+        public readonly bool SupportsR4G4Format;
+        public readonly bool SupportsFragmentShaderInterlock;
+        public readonly bool SupportsFragmentShaderOrderingIntel;
+        public readonly bool SupportsImageLoadFormatted;
+        public readonly bool SupportsMismatchingViewFormat;
+        public readonly bool SupportsNonConstantTextureOffset;
+        public readonly bool SupportsShaderBallot;
+        public readonly bool SupportsTextureShadowLod;
+        public readonly bool SupportsViewportSwizzle;
+        public readonly bool SupportsIndirectParameters;
 
-        public float MaxSupportedAnisotropy { get; }
+        public readonly int MaximumComputeSharedMemorySize;
+        public readonly float MaximumSupportedAnisotropy;
+        public readonly int StorageBufferOffsetAlignment;
 
         public Capabilities(
-            bool  supportsAstcCompression,
-            bool  supportsNonConstantTextureOffset,
-            int   maximumComputeSharedMemorySize,
-            int   storageBufferOffsetAlignment,
-            float maxSupportedAnisotropy)
+            bool hasFrontFacingBug,
+            bool hasVectorIndexingBug,
+            bool supportsAstcCompression,
+            bool supports3DTextureCompression,
+            bool supportsBgraFormat,
+            bool supportsR4G4Format,
+            bool supportsFragmentShaderInterlock,
+            bool supportsFragmentShaderOrderingIntel,
+            bool supportsImageLoadFormatted,
+            bool supportsMismatchingViewFormat,
+            bool supportsNonConstantTextureOffset,
+            bool supportsShaderBallot,
+            bool supportsTextureShadowLod,
+            bool supportsViewportSwizzle,
+            bool supportsIndirectParameters,
+            int maximumComputeSharedMemorySize,
+            float maximumSupportedAnisotropy,
+            int storageBufferOffsetAlignment)
         {
-            SupportsAstcCompression          = supportsAstcCompression;
+            HasFrontFacingBug = hasFrontFacingBug;
+            HasVectorIndexingBug = hasVectorIndexingBug;
+            SupportsAstcCompression = supportsAstcCompression;
+            Supports3DTextureCompression = supports3DTextureCompression;
+            SupportsBgraFormat = supportsBgraFormat;
+            SupportsR4G4Format = supportsR4G4Format;
+            SupportsFragmentShaderInterlock = supportsFragmentShaderInterlock;
+            SupportsFragmentShaderOrderingIntel = supportsFragmentShaderOrderingIntel;
+            SupportsImageLoadFormatted = supportsImageLoadFormatted;
+            SupportsMismatchingViewFormat = supportsMismatchingViewFormat;
             SupportsNonConstantTextureOffset = supportsNonConstantTextureOffset;
-            MaximumComputeSharedMemorySize   = maximumComputeSharedMemorySize;
-            StorageBufferOffsetAlignment     = storageBufferOffsetAlignment;
-            MaxSupportedAnisotropy           = maxSupportedAnisotropy;
+            SupportsShaderBallot = supportsShaderBallot;
+            SupportsTextureShadowLod = supportsTextureShadowLod;
+            SupportsViewportSwizzle = supportsViewportSwizzle;
+            SupportsIndirectParameters = supportsIndirectParameters;
+            MaximumComputeSharedMemorySize = maximumComputeSharedMemorySize;
+            MaximumSupportedAnisotropy = maximumSupportedAnisotropy;
+            StorageBufferOffsetAlignment = storageBufferOffsetAlignment;
         }
     }
 }

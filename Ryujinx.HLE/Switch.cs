@@ -1,127 +1,144 @@
-using LibHac.FsSystem;
-using Ryujinx.Audio;
-using Ryujinx.Configuration;
-using Ryujinx.Graphics.GAL;
+using Ryujinx.Audio.Backends.CompatLayer;
+using Ryujinx.Audio.Integration;
 using Ryujinx.Graphics.Gpu;
 using Ryujinx.HLE.FileSystem;
-using Ryujinx.HLE.FileSystem.Content;
 using Ryujinx.HLE.HOS;
-using Ryujinx.HLE.HOS.Services;
+using Ryujinx.HLE.HOS.Services.Apm;
 using Ryujinx.HLE.HOS.Services.Hid;
-using Ryujinx.HLE.HOS.SystemState;
+using Ryujinx.HLE.Ui;
+using Ryujinx.Memory;
 using System;
-using System.Threading;
 
 namespace Ryujinx.HLE
 {
     public class Switch : IDisposable
     {
-        public IAalOutput AudioOut { get; private set; }
+        public HLEConfiguration Configuration { get; }
 
-        internal DeviceMemory Memory { get; private set; }
+        public IHardwareDeviceDriver AudioDeviceDriver { get; }
 
-        public GpuContext Gpu { get; private set; }
+        internal MemoryBlock Memory { get; }
 
-        public VirtualFileSystem FileSystem { get; private set; }
+        public GpuContext Gpu { get; }
 
-        public Horizon System { get; private set; }
+        public VirtualFileSystem FileSystem => Configuration.VirtualFileSystem;
 
-        public PerformanceStatistics Statistics { get; private set; }
+        public Horizon System { get; }
 
-        public Hid Hid { get; private set; }
+        public ApplicationLoader Application { get; }
+
+        public PerformanceStatistics Statistics { get; }
+
+        public Hid Hid { get; }
+
+        public TamperMachine TamperMachine { get; }
+
+        public IHostUiHandler UiHandler { get; }
 
         public bool EnableDeviceVsync { get; set; } = true;
 
-        public Switch(VirtualFileSystem fileSystem, ContentManager contentManager, IRenderer renderer, IAalOutput audioOut)
+        public Switch(HLEConfiguration configuration)
         {
-            if (renderer == null)
+            if (configuration.GpuRenderer == null)
             {
-                throw new ArgumentNullException(nameof(renderer));
+                throw new ArgumentNullException(nameof(configuration.GpuRenderer));
             }
 
-            if (audioOut == null)
+            if (configuration.AudioDeviceDriver == null)
             {
-                throw new ArgumentNullException(nameof(audioOut));
+                throw new ArgumentNullException(nameof(configuration.AudioDeviceDriver));
             }
 
-            AudioOut = audioOut;
+            if (configuration.UserChannelPersistence == null)
+            {
+                throw new ArgumentNullException(nameof(configuration.UserChannelPersistence));
+            }
 
-            Memory = new DeviceMemory();
+            Configuration = configuration;
 
-            Gpu = new GpuContext(renderer);
+            UiHandler = configuration.HostUiHandler;
 
-            FileSystem = fileSystem;
+            AudioDeviceDriver = new CompatLayerHardwareDeviceDriver(configuration.AudioDeviceDriver);
 
-            System = new Horizon(this, contentManager);
+            Memory = new MemoryBlock(configuration.MemoryConfiguration.ToDramSize(), MemoryAllocationFlags.Reserve);
+
+            Gpu = new GpuContext(configuration.GpuRenderer);
+
+            System = new Horizon(this);
+            System.InitializeServices();
 
             Statistics = new PerformanceStatistics();
 
-            Hid = new Hid(this, System.HidBaseAddress);
+            Hid = new Hid(this, System.HidStorage);
             Hid.InitDevices();
+
+            Application = new ApplicationLoader(this);
+
+            TamperMachine = new TamperMachine();
+
+            Initialize();
         }
 
-        public void Initialize()
+        private void Initialize()
         {
-            System.State.SetLanguage((SystemLanguage)ConfigurationState.Instance.System.Language.Value);
+            System.State.SetLanguage(Configuration.SystemLanguage);
 
-            System.State.SetRegion((SystemRegion)ConfigurationState.Instance.System.Region.Value);
+            System.State.SetRegion(Configuration.Region);
 
-            EnableDeviceVsync = ConfigurationState.Instance.Graphics.EnableVsync;
+            EnableDeviceVsync = Configuration.EnableVsync;
 
-            System.State.DockedMode = ConfigurationState.Instance.System.EnableDockedMode;
+            System.State.DockedMode = Configuration.EnableDockedMode;
 
-            if (ConfigurationState.Instance.System.EnableMulticoreScheduling)
-            {
-                System.EnableMultiCoreScheduling();
-            }
+            System.PerformanceState.PerformanceMode = System.State.DockedMode ? PerformanceMode.Boost : PerformanceMode.Default;
 
-            System.FsIntegrityCheckLevel = GetIntigrityCheckLevel();
+            System.EnablePtc = Configuration.EnablePtc;
 
-            System.GlobalAccessLogMode = ConfigurationState.Instance.System.FsGlobalAccessLogMode;
+            System.FsIntegrityCheckLevel = Configuration.FsIntegrityCheckLevel;
 
-            ServiceConfiguration.IgnoreMissingServices = ConfigurationState.Instance.System.IgnoreMissingServices;
-        }
-
-        public static IntegrityCheckLevel GetIntigrityCheckLevel()
-        {
-            return ConfigurationState.Instance.System.EnableFsIntegrityChecks
-                ? IntegrityCheckLevel.ErrorOnInvalid
-                : IntegrityCheckLevel.None;
+            System.GlobalAccessLogMode = Configuration.FsGlobalAccessLogMode;
         }
 
         public void LoadCart(string exeFsDir, string romFsFile = null)
         {
-            System.LoadCart(exeFsDir, romFsFile);
+            Application.LoadCart(exeFsDir, romFsFile);
         }
 
         public void LoadXci(string xciFile)
         {
-            System.LoadXci(xciFile);
+            Application.LoadXci(xciFile);
         }
 
         public void LoadNca(string ncaFile)
         {
-            System.LoadNca(ncaFile);
+            Application.LoadNca(ncaFile);
         }
 
         public void LoadNsp(string nspFile)
         {
-            System.LoadNsp(nspFile);
+            Application.LoadNsp(nspFile);
         }
 
         public void LoadProgram(string fileName)
         {
-            System.LoadProgram(fileName);
+            Application.LoadProgram(fileName);
         }
 
         public bool WaitFifo()
         {
-            return Gpu.DmaPusher.WaitForCommands();
+            return Gpu.GPFifo.WaitForCommands();
         }
 
         public void ProcessFrame()
         {
-            Gpu.DmaPusher.DispatchCalls();
+            Gpu.ProcessShaderCacheQueue();
+            Gpu.Renderer.PreFrame();
+
+            Gpu.GPFifo.DispatchCalls();
+        }
+
+        public bool ConsumeFrameAvailable()
+        {
+            return Gpu.Window.ConsumeFrameAvailable();
         }
 
         public void PresentFrame(Action swapBuffersCallback)
@@ -129,11 +146,24 @@ namespace Ryujinx.HLE
             Gpu.Window.Present(swapBuffersCallback);
         }
 
-        internal void Unload()
+        public void SetVolume(float volume)
         {
-            FileSystem.Unload();
+            System.SetVolume(volume);
+        }
 
-            Memory.Dispose();
+        public float GetVolume()
+        {
+            return System.GetVolume();
+        }
+
+        public void EnableCheats()
+        {
+            FileSystem.ModLoader.EnableCheats(Application.TitleId, TamperMachine);
+        }
+
+        public bool IsAudioMuted()
+        {
+            return System.GetVolume() == 0;
         }
 
         public void DisposeGpu()
@@ -151,7 +181,9 @@ namespace Ryujinx.HLE
             if (disposing)
             {
                 System.Dispose();
-                AudioOut.Dispose();
+                AudioDeviceDriver.Dispose();
+                FileSystem.Unload();
+                Memory.Dispose();
             }
         }
     }

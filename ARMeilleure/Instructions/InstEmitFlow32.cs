@@ -5,7 +5,7 @@ using ARMeilleure.Translation;
 
 using static ARMeilleure.Instructions.InstEmitFlowHelper;
 using static ARMeilleure.Instructions.InstEmitHelper;
-using static ARMeilleure.IntermediateRepresentation.OperandHelper;
+using static ARMeilleure.IntermediateRepresentation.Operand.Factory;
 
 namespace ARMeilleure.Instructions
 {
@@ -15,14 +15,7 @@ namespace ARMeilleure.Instructions
         {
             IOpCode32BImm op = (IOpCode32BImm)context.CurrOp;
 
-            if (context.CurrBlock.Branch != null)
-            {
-                context.Branch(context.GetLabel((ulong)op.Immediate));
-            }
-            else
-            {
-                EmitTailContinue(context, Const(op.Immediate));
-            }
+            context.Branch(context.GetLabel((ulong)op.Immediate));
         }
 
         public static void Bl(ArmEmitterContext context)
